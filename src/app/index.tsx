@@ -7,52 +7,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
-type Entry = {
-  id: string;
-  date: Date;
-  mood: string;
-  title: string;
-  body: string;
-};
-
-const ENTRIES: Entry[] = [
-  {
-    id: '1',
-    date: new Date(2026, 4, 29),
-    mood: '☀️',
-    title: '鴨川沿いを散歩した',
-    body: '夕方から鴨川沿いを歩いた。風がぬるくて、もう初夏という感じ。等間隔カップルも健在で、見ているだけで少し笑ってしまった。',
-  },
-  {
-    id: '2',
-    date: new Date(2026, 4, 27),
-    mood: '☕️',
-    title: '新しい喫茶店',
-    body: '河原町二条の小さな喫茶店に入った。深煎りの豆と、店主の選曲がとても良かった。次は本を持って行きたい。',
-  },
-  {
-    id: '3',
-    date: new Date(2026, 4, 24),
-    mood: '🌧',
-    title: '雨の日の作業',
-    body: '一日中雨。家でコードを書いて過ごす。集中はできたけれど、夜になって少しだけ気分が落ちた。明日は外に出よう。',
-  },
-  {
-    id: '4',
-    date: new Date(2026, 4, 21),
-    mood: '🍜',
-    title: '友人と夕食',
-    body: '久しぶりに学生時代の友人とラーメン。お互い違う方向に進んだけれど、話しているとあの頃の距離感に戻る。',
-  },
-  {
-    id: '5',
-    date: new Date(2026, 4, 18),
-    mood: '📚',
-    title: '読了',
-    body: '積んでいた本をやっと読み終えた。後半の展開がとても良くて、読後しばらく動けなかった。',
-  },
-];
+import { useEntries } from '../store/entries';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -68,8 +25,11 @@ function formatDay(date: Date) {
 }
 
 export default function Index() {
+  const { entries } = useEntries();
   const today = useMemo(() => new Date(), []);
   const { day: todayDay, weekday: todayWeekday } = formatDay(today);
+
+  const openNew = () => router.push('/new');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -83,7 +43,7 @@ export default function Index() {
           <Text style={styles.headerTitle}>日記</Text>
         </View>
 
-        <Pressable style={styles.todayCard}>
+        <Pressable style={styles.todayCard} onPress={openNew}>
           <View style={styles.todayDateColumn}>
             <Text style={styles.todayWeekday}>{todayWeekday}</Text>
             <Text style={styles.todayDay}>{todayDay}</Text>
@@ -100,7 +60,7 @@ export default function Index() {
         <Text style={styles.sectionLabel}>これまでの日記</Text>
 
         <View style={styles.list}>
-          {ENTRIES.map((entry) => {
+          {entries.map((entry) => {
             const { day, weekday } = formatDay(entry.date);
             return (
               <Pressable key={entry.id} style={styles.entry}>
@@ -112,12 +72,14 @@ export default function Index() {
                   <View style={styles.entryTitleRow}>
                     <Text style={styles.entryMood}>{entry.mood}</Text>
                     <Text style={styles.entryTitle} numberOfLines={1}>
-                      {entry.title}
+                      {entry.title || '(無題)'}
                     </Text>
                   </View>
-                  <Text style={styles.entryExcerpt} numberOfLines={2}>
-                    {entry.body}
-                  </Text>
+                  {entry.body.length > 0 && (
+                    <Text style={styles.entryExcerpt} numberOfLines={2}>
+                      {entry.body}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             );
@@ -125,7 +87,7 @@ export default function Index() {
         </View>
       </ScrollView>
 
-      <Pressable style={styles.fab}>
+      <Pressable style={styles.fab} onPress={openNew}>
         <Text style={styles.fabIcon}>✎</Text>
       </Pressable>
     </SafeAreaView>

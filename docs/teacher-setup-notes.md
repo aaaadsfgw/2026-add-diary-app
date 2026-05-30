@@ -28,7 +28,7 @@ git push origin main
 | `TEACHER_OWNER` | `your-github-org` |
 | `OPENCODE_EXTENSION_ID` | `company.opencode` (実際の拡張 ID) |
 
-`README.md` の `YOUR_ORG` も同様に置換してください。
+`README.md` の GitHub owner も同じ値になっていることを確認してください。
 
 ## GitHub での配布
 
@@ -37,7 +37,7 @@ git push origin main
 3. 生徒に以下のワンライナーを共有
 
 ```
-bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/diary-app/main/setup.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/ncc-toda/diary-app/main/setup.sh)
 ```
 
 ## Apple Developer
@@ -56,7 +56,7 @@ Expo Go で動かす前提なら **Firebase JS SDK** (`firebase` パッケージ
 WSL は不要。`flake.nix` が macOS にも対応しているので、以下だけでよい。
 
 ```bash
-git clone git@github.com:YOUR_ORG/diary-app.git
+git clone git@github.com:ncc-toda/diary-app.git
 cd diary-app
 direnv allow      # 初回のみ
 just install

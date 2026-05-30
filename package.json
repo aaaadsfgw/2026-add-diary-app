@@ -2,6 +2,7 @@
   "name": "diary-app",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "license": "MIT-0",
   "dependencies": {
     "@expo/ui": "~56.0.14",
     "expo": "~56.0.6",

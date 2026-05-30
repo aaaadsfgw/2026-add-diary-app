@@ -5,7 +5,7 @@ set -euo pipefail
 # Diary App Hands-on Setup Script
 #
 # Usage (in WSL Ubuntu):
-#   bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_ORG/diary-app/main/setup.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/ncc-toda/diary-app/main/setup.sh)
 #
 # Optional: put the project somewhere other than ~/projects/diary-app
 #   PROJECT_DIR=~/work/diary-app bash <(curl -fsSL ...)
@@ -13,7 +13,7 @@ set -euo pipefail
 
 # ----- configurable -----------------------------------------
 
-TEACHER_OWNER="YOUR_ORG"          # TODO: GitHub org / user that owns the upstream repo
+TEACHER_OWNER="ncc-toda"          # GitHub org / user that owns the upstream repo
 REPO_NAME="diary-app"
 
 # Allow override from environment (see usage above)

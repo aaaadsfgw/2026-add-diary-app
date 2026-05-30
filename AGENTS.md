@@ -1,3 +1,4 @@
-# Expo HAS CHANGED
+# Expo SDK 54
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
+このプロジェクトは **Expo SDK 54** (Expo Go で動く最新版) を使う。
+コードを書く前に必ず正確なバージョン別ドキュメントを参照すること: https://docs.expo.dev/versions/v54.0.0/

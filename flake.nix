@@ -42,6 +42,9 @@
               # Expo / Firebase CLIs
               firebase-tools
               eas-cli
+
+              # AI coding agent (CLI; also backs the sst-dev.opencode VS Code extension)
+              opencode
             ];
 
             shellHook = ''

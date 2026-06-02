@@ -260,4 +260,45 @@ cat <<EOF
 EOF
 
 cd "$PROJECT_DIR"
-exec "${SHELL:-/bin/bash}" -l
+
+# Drop the user into a fresh interactive shell rooted at PROJECT_DIR.
+# Strategy:
+#   - Detect the actual interactive shell via $PPID (the script's parent).
+#     $SHELL alone is unreliable: it's the login shell from /etc/passwd,
+#     not necessarily the shell the student is sitting in.
+#   - Source the user's existing rc, THEN cd $PROJECT_DIR. This way our cd
+#     wins even if the user's rc does `cd ~` or exports HOME mid-rc.
+#   - For bash use --rcfile; for zsh use ZDOTDIR. We also pre-set ZDOTDIR
+#     before sourcing .bashrc, so a .bashrc that ends with `exec zsh`
+#     still lands in our cd-injected zsh rc.
+
+ZSH_RC_DIR="$(mktemp -d /tmp/diary-app-zsh.XXXXXX)"
+cat > "$ZSH_RC_DIR/.zshrc" <<RC
+[ -f "\$HOME/.zshrc" ] && . "\$HOME/.zshrc"
+cd "$PROJECT_DIR"
+RC
+
+PARENT_SHELL=""
+if command -v ps >/dev/null 2>&1; then
+  PARENT_SHELL="$(ps -o comm= -p "$PPID" 2>/dev/null | tr -d ' \n' || true)"
+fi
+TARGET_SHELL_NAME="${PARENT_SHELL:-$(basename "${SHELL:-/bin/bash}")}"
+TARGET_SHELL_BIN="$(command -v "$TARGET_SHELL_NAME" 2>/dev/null || echo "${SHELL:-/bin/bash}")"
+
+case "$(basename "$TARGET_SHELL_BIN")" in
+  zsh)
+    ZDOTDIR="$ZSH_RC_DIR" exec "$TARGET_SHELL_BIN" -i
+    ;;
+  bash)
+    BASH_RC="$(mktemp /tmp/diary-app-bashrc.XXXXXX)"
+    cat > "$BASH_RC" <<RC
+export ZDOTDIR="$ZSH_RC_DIR"
+[ -f "\$HOME/.bashrc" ] && . "\$HOME/.bashrc"
+cd "$PROJECT_DIR"
+RC
+    exec "$TARGET_SHELL_BIN" --rcfile "$BASH_RC" -i
+    ;;
+  *)
+    exec "$TARGET_SHELL_BIN"
+    ;;
+esac

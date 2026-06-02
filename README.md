@@ -104,6 +104,20 @@ just start
 
 ---
 
+## 最初からやり直したいとき
+
+setup.sh で作ったプロジェクトディレクトリと GitHub fork を消して、
+セットアップ前の状態に戻すには:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/ncc-toda/2026-add-diary-app/main/cleanup.sh)
+```
+
+`apt` パッケージ・`gh`・Nix・direnv フック・VS Code 拡張は残ります。
+fork を残してローカルだけ消したい場合は `KEEP_FORK=1` を付けてください。
+
+---
+
 ## よく使うコマンド
 
 | コマンド | 説明 |

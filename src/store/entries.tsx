@@ -1,90 +1,148 @@
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 
+import {
+  createDiaryEntry,
+  fetchDiaryEntries,
+  updateDiaryEntry,
+  type DiaryEntryPayload,
+} from '../services/firebase';
+
 export type Entry = {
   id: string;
-  date: Date;
-  mood: string;
+  icon: string;
   title: string;
   body: string;
+  date: string;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
-const INITIAL_ENTRIES: Entry[] = [
-  {
-    id: 'seed-1',
-    date: new Date(2026, 4, 29),
-    mood: '☀️',
-    title: '鴨川沿いを散歩した',
-    body: '夕方から鴨川沿いを歩いた。風がぬるくて、もう初夏という感じ。等間隔カップルも健在で、見ているだけで少し笑ってしまった。',
-  },
-  {
-    id: 'seed-2',
-    date: new Date(2026, 4, 27),
-    mood: '☕️',
-    title: '新しい喫茶店',
-    body: '河原町二条の小さな喫茶店に入った。深煎りの豆と、店主の選曲がとても良かった。次は本を持って行きたい。',
-  },
-  {
-    id: 'seed-3',
-    date: new Date(2026, 4, 24),
-    mood: '🌧',
-    title: '雨の日の作業',
-    body: '一日中雨。家でコードを書いて過ごす。集中はできたけれど、夜になって少しだけ気分が落ちた。明日は外に出よう。',
-  },
-  {
-    id: 'seed-4',
-    date: new Date(2026, 4, 21),
-    mood: '🍜',
-    title: '友人と夕食',
-    body: '久しぶりに学生時代の友人とラーメン。お互い違う方向に進んだけれど、話しているとあの頃の距離感に戻る。',
-  },
-  {
-    id: 'seed-5',
-    date: new Date(2026, 4, 18),
-    mood: '📚',
-    title: '読了',
-    body: '積んでいた本をやっと読み終えた。後半の展開がとても良くて、読後しばらく動けなかった。',
-  },
-];
-
-type EntryInput = {
-  mood: string;
+export type EntryInput = {
+  icon: string;
   title: string;
   body: string;
+  date: string;
+  imageUrl?: string;
 };
 
 type EntriesContextValue = {
   entries: Entry[];
-  addEntry: (input: EntryInput) => void;
+  loading: boolean;
+  error: string | null;
+  addEntry: (input: EntryInput) => Promise<Entry>;
+  updateEntry: (id: string, input: EntryInput) => Promise<Entry>;
+  getEntry: (id: string) => Entry | undefined;
+  searchEntries: (query: string) => Entry[];
+  refreshEntries: () => Promise<void>;
 };
 
 const EntriesContext = createContext<EntriesContextValue | null>(null);
 
+function sortEntries(entries: Entry[]) {
+  return [...entries].sort((a, b) => {
+    const dateDiff = b.date.localeCompare(a.date);
+    if (dateDiff !== 0) return dateDiff;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+}
+
+function normalize(input: EntryInput): DiaryEntryPayload {
+  return {
+    icon: input.icon.trim() || '📝',
+    title: input.title.trim(),
+    body: input.body.trim(),
+    date: input.date,
+    imageUrl: input.imageUrl?.trim() || undefined,
+  };
+}
+
 export function EntriesProvider({ children }: { children: ReactNode }) {
-  const [entries, setEntries] = useState<Entry[]>(INITIAL_ENTRIES);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshEntries = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fetched = await fetchDiaryEntries();
+      setEntries(sortEntries(fetched));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : '日記の読み込みに失敗しました。',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshEntries();
+  }, [refreshEntries]);
+
+  const addEntry = useCallback(async (input: EntryInput) => {
+    const saved = await createDiaryEntry(normalize(input));
+    setEntries((prev) => sortEntries([saved, ...prev]));
+    return saved;
+  }, []);
+
+  const updateEntry = useCallback(async (id: string, input: EntryInput) => {
+    const saved = await updateDiaryEntry(id, normalize(input));
+    setEntries((prev) =>
+      sortEntries(prev.map((entry) => (entry.id === id ? saved : entry))),
+    );
+    return saved;
+  }, []);
+
+  const getEntry = useCallback(
+    (id: string) => entries.find((entry) => entry.id === id),
+    [entries],
+  );
+
+  const searchEntries = useCallback(
+    (query: string) => {
+      const keyword = query.trim().toLowerCase();
+      if (!keyword) return entries;
+      return entries.filter((entry) =>
+        [entry.title, entry.body, entry.date, entry.icon]
+          .join(' ')
+          .toLowerCase()
+          .includes(keyword),
+      );
+    },
+    [entries],
+  );
 
   const value = useMemo<EntriesContextValue>(
     () => ({
       entries,
-      addEntry: ({ mood, title, body }) => {
-        setEntries((prev) => [
-          {
-            id: `entry-${Date.now()}`,
-            date: new Date(),
-            mood,
-            title,
-            body,
-          },
-          ...prev,
-        ]);
-      },
+      loading,
+      error,
+      addEntry,
+      updateEntry,
+      getEntry,
+      searchEntries,
+      refreshEntries,
     }),
-    [entries],
+    [
+      addEntry,
+      entries,
+      error,
+      getEntry,
+      loading,
+      refreshEntries,
+      searchEntries,
+      updateEntry,
+    ],
   );
 
   return (

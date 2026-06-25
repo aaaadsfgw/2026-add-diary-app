@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useEntries } from '../store/entries';
 
@@ -17,7 +19,9 @@ function formatHeader(date: Date) {
   return `${date.getFullYear()}年 ${date.getMonth() + 1}月`;
 }
 
-function formatDay(date: Date) {
+function formatDateLabel(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return { day: '--', weekday: '' };
   return {
     day: String(date.getDate()).padStart(2, '0'),
     weekday: WEEKDAYS[date.getDay()],
@@ -25,231 +29,259 @@ function formatDay(date: Date) {
 }
 
 export default function Index() {
-  const { entries } = useEntries();
+  const { error, loading, refreshEntries, searchEntries } = useEntries();
+  const [query, setQuery] = useState('');
   const today = useMemo(() => new Date(), []);
-  const { day: todayDay, weekday: todayWeekday } = formatDay(today);
-
-  const openNew = () => router.push('/new');
+  const entries = searchEntries(query);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <View>
           <Text style={styles.headerMonth}>{formatHeader(today)}</Text>
           <Text style={styles.headerTitle}>日記</Text>
         </View>
-
-        <Pressable style={styles.todayCard} onPress={openNew}>
-          <View style={styles.todayDateColumn}>
-            <Text style={styles.todayWeekday}>{todayWeekday}</Text>
-            <Text style={styles.todayDay}>{todayDay}</Text>
-          </View>
-          <View style={styles.todayBody}>
-            <Text style={styles.todayLabel}>今日の記録</Text>
-            <Text style={styles.todayPrompt}>
-              タップして、今日のことを書きとめよう。
-            </Text>
-          </View>
-          <Text style={styles.todayChevron}>＋</Text>
+        <Pressable style={styles.headerButton} onPress={() => router.push('/new')}>
+          <Text style={styles.headerButtonText}>＋</Text>
         </Pressable>
+      </View>
 
-        <Text style={styles.sectionLabel}>これまでの日記</Text>
+      <View style={styles.searchWrap}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="タイトルや本文を検索"
+          placeholderTextColor="#9A948C"
+          value={query}
+          onChangeText={setQuery}
+          returnKeyType="search"
+        />
+      </View>
 
-        <View style={styles.list}>
-          {entries.map((entry) => {
-            const { day, weekday } = formatDay(entry.date);
-            return (
-              <Pressable key={entry.id} style={styles.entry}>
-                <View style={styles.entryDateColumn}>
-                  <Text style={styles.entryWeekday}>{weekday}</Text>
-                  <Text style={styles.entryDay}>{day}</Text>
-                </View>
-                <View style={styles.entryBody}>
-                  <View style={styles.entryTitleRow}>
-                    <Text style={styles.entryMood}>{entry.mood}</Text>
-                    <Text style={styles.entryTitle} numberOfLines={1}>
-                      {entry.title || '(無題)'}
-                    </Text>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color="#5C7D6B" />
+          <Text style={styles.centerText}>日記を読み込んでいます</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {error ? (
+            <View style={styles.notice}>
+              <Text style={styles.noticeTitle}>読み込みに失敗しました</Text>
+              <Text style={styles.noticeText}>{error}</Text>
+              <Pressable style={styles.retryButton} onPress={refreshEntries}>
+                <Text style={styles.retryButtonText}>再読み込み</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {!error && entries.length === 0 ? (
+            <View style={styles.notice}>
+              <Text style={styles.noticeTitle}>
+                {query ? '見つかりませんでした' : '最初の日記を書きましょう'}
+              </Text>
+              <Text style={styles.noticeText}>
+                {query
+                  ? '検索語を変えると、別の日記が見つかるかもしれません。'
+                  : '右上の＋から、今日の出来事や気分を残せます。'}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.list}>
+            {entries.map((entry) => {
+              const { day, weekday } = formatDateLabel(entry.date);
+              return (
+                <Pressable
+                  key={entry.id}
+                  style={styles.entry}
+                  onPress={() =>
+                    router.push({ pathname: '/[id]', params: { id: entry.id } })
+                  }
+                >
+                  <View style={styles.entryDateColumn}>
+                    <Text style={styles.entryWeekday}>{weekday}</Text>
+                    <Text style={styles.entryDay}>{day}</Text>
                   </View>
-                  {entry.body.length > 0 && (
+                  <View style={styles.entryBody}>
+                    <View style={styles.entryTitleRow}>
+                      <Text style={styles.entryIcon}>{entry.icon}</Text>
+                      <Text style={styles.entryTitle} numberOfLines={1}>
+                        {entry.title || '無題の日記'}
+                      </Text>
+                    </View>
                     <Text style={styles.entryExcerpt} numberOfLines={2}>
                       {entry.body}
                     </Text>
-                  )}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      </ScrollView>
-
-      <Pressable style={styles.fab} onPress={openNew}>
-        <Text style={styles.fabIcon}>✎</Text>
-      </Pressable>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
 
-const PAPER = '#FAF6EE';
-const INK = '#2B2A28';
-const SUB = '#8A8278';
-const ACCENT = '#8B5E3C';
+const PAPER = '#F7F1E8';
+const INK = '#272A2B';
+const SUB = '#736E68';
+const ACCENT = '#5C7D6B';
 const CARD = '#FFFFFF';
+const BORDER = '#E4D9CC';
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: PAPER,
   },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  headerMonth: {
+    color: SUB,
+    fontSize: 13,
+  },
+  headerTitle: {
+    color: INK,
+    fontSize: 32,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  headerButton: {
+    alignItems: 'center',
+    backgroundColor: ACCENT,
+    borderRadius: 24,
+    height: 48,
+    justifyContent: 'center',
+    width: 48,
+  },
+  headerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    lineHeight: 30,
+  },
+  searchWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  searchInput: {
+    backgroundColor: CARD,
+    borderColor: BORDER,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: INK,
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 36,
   },
-  header: {
-    paddingTop: 8,
-    paddingBottom: 20,
-  },
-  headerMonth: {
-    fontSize: 13,
-    color: SUB,
-    letterSpacing: 2,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: INK,
-    marginTop: 4,
-    letterSpacing: 4,
-  },
-  todayCard: {
-    flexDirection: 'row',
+  center: {
     alignItems: 'center',
-    backgroundColor: CARD,
-    borderRadius: 16,
-    padding: 18,
-    gap: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  todayDateColumn: {
-    alignItems: 'center',
-    width: 44,
-  },
-  todayWeekday: {
-    fontSize: 12,
-    color: ACCENT,
-    fontWeight: '600',
-  },
-  todayDay: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: INK,
-    marginTop: 2,
-  },
-  todayBody: {
     flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  todayLabel: {
-    fontSize: 12,
+  centerText: {
     color: SUB,
-    letterSpacing: 1,
+    fontSize: 14,
+    marginTop: 12,
   },
-  todayPrompt: {
-    fontSize: 15,
+  notice: {
+    backgroundColor: CARD,
+    borderColor: BORDER,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 18,
+  },
+  noticeTitle: {
     color: INK,
-    marginTop: 4,
-    lineHeight: 22,
+    fontSize: 17,
+    fontWeight: '700',
   },
-  todayChevron: {
-    fontSize: 24,
-    color: ACCENT,
-    fontWeight: '300',
-  },
-  sectionLabel: {
-    fontSize: 12,
+  noticeText: {
     color: SUB,
-    letterSpacing: 2,
-    marginTop: 28,
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: ACCENT,
+    borderRadius: 8,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   list: {
-    gap: 14,
+    gap: 12,
   },
   entry: {
-    flexDirection: 'row',
-    gap: 16,
     backgroundColor: CARD,
-    borderRadius: 14,
+    borderColor: BORDER,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 14,
     padding: 16,
   },
   entryDateColumn: {
     alignItems: 'center',
-    width: 44,
     paddingTop: 2,
+    width: 44,
   },
   entryWeekday: {
-    fontSize: 11,
     color: SUB,
+    fontSize: 12,
   },
   entryDay: {
-    fontSize: 22,
-    fontWeight: '600',
     color: INK,
+    fontSize: 24,
+    fontWeight: '700',
     marginTop: 2,
   },
   entryBody: {
     flex: 1,
   },
   entryTitleRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    flexDirection: 'row',
+    gap: 8,
   },
-  entryMood: {
-    fontSize: 16,
+  entryIcon: {
+    fontSize: 18,
   },
   entryTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
     color: INK,
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
   },
   entryExcerpt: {
-    fontSize: 13,
     color: SUB,
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  fab: {
-    position: 'absolute',
-    right: 24,
-    bottom: 32,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: ACCENT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  fabIcon: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 26,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 7,
   },
 });
